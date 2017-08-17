@@ -76,8 +76,19 @@ class SelectorBIC(ModelSelector):
         """
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection based on BIC scores
-        raise NotImplementedError
+        # implement model selection based on BIC scores
+        models = [self.base_model(n) for n in range(self.min_n_components, self.max_n_components + 1)]
+        _, best_model = min([(self.score(model), model) for model in models])
+        return best_model
+
+    def score(self, model):
+        try:
+            p = len(self.X[0])
+            logL = model.score(self.X, self.lengths)
+            N = len(self.X)
+            return -2 * logL + p * np.log(N)
+        except:
+            return float("inf")
 
 
 class SelectorDIC(ModelSelector):
@@ -92,8 +103,24 @@ class SelectorDIC(ModelSelector):
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection based on DIC scores
-        raise NotImplementedError
+        # implement model selection based on DIC scores
+        models = [self.base_model(n) for n in range(self.min_n_components, self.max_n_components + 1)]
+        _, best_model = max([(self.score(model), model) for model in models])
+        return best_model
+
+    def score(self, model):
+        try:
+            M = len(self.words)
+            words_rest = [w for w in list(self.words) if w != self.this_word]
+            left = model.score(self.X, self.lengths)
+            right = 0
+            for w in words_rest:
+                w_X, w_lengths = self.hwords[w]
+                right += model.score(w_X, w_lengths)
+            right = 1 / (M - 1) * right
+            return left - right
+        except:
+            return float("-inf")
 
 
 class SelectorCV(ModelSelector):
@@ -104,5 +131,29 @@ class SelectorCV(ModelSelector):
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection using CV
-        raise NotImplementedError
+        # implement model selection using CV
+        untrained_models = [GaussianHMM(n_components = n)
+                            for n in range(self.min_n_components, self.max_n_components + 1)]
+        best_untrained_model = None
+        best_score = float("-inf")
+        for untrained_model in untrained_models:
+            current_score = self.score(untrained_model)
+            if current_score > best_score:
+                best_untrained_model = untrained_model
+                best_score = current_score
+        return self.base_model(best_untrained_model.n_components)
+
+    def score(self, model):
+        try:
+            split_method = KFold(n_splits=2)
+            total = 0
+            count = 0
+            for cv_train_idx, cv_test_idx in split_method.split(self.sequences):
+                X_train, lengths_train = combine_sequences(cv_train_idx, self.sequences)
+                X_test, lengths_test = combine_sequences(cv_test_idx, self.sequences)
+                trained_model = model.fit(X_train, lengths_train)
+                total += trained_model.score(X_test, lengths_test)
+                count += 1
+            return total / count
+        except:
+            return float("-inf")
