@@ -62,6 +62,7 @@ target/
 # http://www.jetbrains.com/pycharm/webhelp/project.html
 .idea
 .iml
+.vscode/
 
 
 ###IPythonNotebook###
@@ -77,7 +78,8 @@ target/
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*
