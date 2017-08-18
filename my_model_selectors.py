@@ -89,7 +89,9 @@ class SelectorBIC(ModelSelector):
 
     def score(self, model):
         try:
-            p = len(self.X[0])
+            m = model.n_components
+            f = len(self.X[0])
+            p = m ^ 2 + 2 * m * f - 1
             logL = model.score(self.X, self.lengths)
             N = len(self.X)
             return -2 * logL + p * np.log(N)
