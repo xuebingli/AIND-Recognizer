@@ -124,14 +124,10 @@ class SelectorDIC(ModelSelector):
 
     def score(self, model):
         try:
-            M = len(self.words)
-            words_rest = [w for w in list(self.words) if w != self.this_word]
             left = model.score(self.X, self.lengths)
-            right = 0
-            for w in words_rest:
-                w_X, w_lengths = self.hwords[w]
-                right += model.score(w_X, w_lengths)
-            right = 1 / (M - 1) * right
+            right = np.mean([model.score(self.hwords[word])
+                             for word in self.words
+                             if word != self.this_word])
             return left - right
         except:
             return float("-inf")
