@@ -78,7 +78,13 @@ class SelectorBIC(ModelSelector):
 
         # implement model selection based on BIC scores
         models = [self.base_model(n) for n in range(self.min_n_components, self.max_n_components + 1)]
-        _, best_model = min([(self.score(model), model) for model in models])
+        best_score = float("inf")
+        best_model = None
+        for model in models:
+            current_score = self.score(model)
+            if current_score <= best_score:
+                best_model = model
+                best_score = current_score
         return best_model
 
     def score(self, model):
@@ -105,7 +111,13 @@ class SelectorDIC(ModelSelector):
 
         # implement model selection based on DIC scores
         models = [self.base_model(n) for n in range(self.min_n_components, self.max_n_components + 1)]
-        _, best_model = max([(self.score(model), model) for model in models])
+        best_score = float("-inf")
+        best_model = None
+        for model in models:
+            current_score = self.score(model)
+            if current_score >= best_score:
+                best_model = model
+                best_score = current_score
         return best_model
 
     def score(self, model):
@@ -132,18 +144,16 @@ class SelectorCV(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # implement model selection using CV
-        untrained_models = [GaussianHMM(n_components = n)
-                            for n in range(self.min_n_components, self.max_n_components + 1)]
-        best_untrained_model = None
+        best_n = None
         best_score = float("-inf")
-        for untrained_model in untrained_models:
-            current_score = self.score(untrained_model)
-            if current_score > best_score:
-                best_untrained_model = untrained_model
+        for n in range(self.min_n_components, self.max_n_components + 1):
+            current_score = self.score(n)
+            if current_score >= best_score:
+                best_n = n
                 best_score = current_score
-        return self.base_model(best_untrained_model.n_components)
+        return self.base_model(best_n)
 
-    def score(self, model):
+    def score(self, n):
         try:
             split_method = KFold(n_splits=2)
             total = 0
@@ -151,8 +161,9 @@ class SelectorCV(ModelSelector):
             for cv_train_idx, cv_test_idx in split_method.split(self.sequences):
                 X_train, lengths_train = combine_sequences(cv_train_idx, self.sequences)
                 X_test, lengths_test = combine_sequences(cv_test_idx, self.sequences)
-                trained_model = model.fit(X_train, lengths_train)
-                total += trained_model.score(X_test, lengths_test)
+                model = GaussianHMM(n_components=num_states, covariance_type="diag", n_iter=1000,
+                                    random_state=self.random_state, verbose=False).fit(X_train, lengths_train)
+                total += model.score(X_test, lengths_test)
                 count += 1
             return total / count
         except:
